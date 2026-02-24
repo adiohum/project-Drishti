@@ -1,46 +1,76 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Project Drishti - Object Detection</title>
+  <title>Project Drishti</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- TensorFlow + COCO SSD CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
   <style>
     body {
-      background: #111;
-      color: white;
-      text-align: center;
+      margin: 0;
+      background: #0f172a;
       font-family: Arial, sans-serif;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
-    video {
-      position: absolute;
-      top: 0;
-      left: 0;
+
+    h2 {
+      margin-top: 20px;
     }
+
+    #videoContainer {
+      position: relative;
+      margin-top: 20px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 0 20px rgba(0,255,255,0.3);
+    }
+
+    video, canvas {
+      width: 640px;
+      height: 480px;
+      display: block;
+    }
+
     canvas {
       position: absolute;
       top: 0;
       left: 0;
     }
-    #container {
-      position: relative;
-      display: inline-block;
-    }
-    button {
+
+    .controls {
       margin-top: 15px;
+    }
+
+    button {
       padding: 10px 20px;
-      background: cyan;
-      border: none;
+      margin: 5px;
       font-size: 16px;
+      border: none;
+      border-radius: 6px;
       cursor: pointer;
     }
+
+    .start {
+      background: #06b6d4;
+    }
+
+    .stop {
+      background: #ef4444;
+    }
+
     #log {
       margin-top: 20px;
+      width: 640px;
       max-height: 150px;
       overflow-y: auto;
+      background: #1e293b;
+      padding: 10px;
+      border-radius: 8px;
       font-size: 14px;
     }
   </style>
@@ -48,17 +78,19 @@
 
 <body>
 
-<h2>Project Drishti - Smart Vision</h2>
+<h2>Project Drishti - Smart Vision System</h2>
 
-<div id="container">
-  <video id="video" width="640" height="480" autoplay muted></video>
-  <canvas id="canvas" width="640" height="480"></canvas>
+<div id="videoContainer">
+  <video id="video" autoplay muted></video>
+  <canvas id="canvas"></canvas>
 </div>
 
-<br>
-<button onclick="startCamera()">Initialize Optics</button>
+<div class="controls">
+  <button class="start" onclick="startCamera()">Start Camera</button>
+  <button class="stop" onclick="stopCamera()">Stop Camera</button>
+</div>
 
-<div id="log"></div>
+<div id="log">Detection Log...</div>
 
 <script>
 let model;
@@ -66,48 +98,64 @@ let video = document.getElementById("video");
 let canvas = document.getElementById("canvas");
 let ctx = canvas.getContext("2d");
 let logDiv = document.getElementById("log");
+let stream = null;
+let detecting = false;
 
 async function loadModel() {
   model = await cocoSsd.load();
-  console.log("Model Loaded Successfully");
+  console.log("Model Loaded");
 }
 
 async function startCamera() {
-  await loadModel();
+  if (!model) await loadModel();
 
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: true
-  });
-
+  stream = await navigator.mediaDevices.getUserMedia({ video: true });
   video.srcObject = stream;
+
   video.onloadedmetadata = () => {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    detecting = true;
     detectFrame();
   };
 }
 
-async function detectFrame() {
-  const predictions = await model.detect(video);
-
+function stopCamera() {
+  detecting = false;
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+  }
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  logDiv.innerHTML = "Camera stopped.";
+}
+
+async function detectFrame() {
+  if (!detecting) return;
+
+  const predictions = await model.detect(video);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  let logText = "";
 
   predictions.forEach(prediction => {
     const [x, y, width, height] = prediction.bbox;
 
-    ctx.strokeStyle = "cyan";
+    ctx.strokeStyle = "#00ffff";
     ctx.lineWidth = 2;
     ctx.strokeRect(x, y, width, height);
 
-    ctx.fillStyle = "cyan";
+    ctx.fillStyle = "#00ffff";
+    ctx.font = "16px Arial";
     ctx.fillText(
-      prediction.class + " (" + estimateDistance(width) + ")",
+      `${prediction.class} - ${estimateDistance(width)}`,
       x,
       y > 10 ? y - 5 : 10
     );
 
-    logDiv.innerHTML =
-      prediction.class + " - " + estimateDistance(width) +
-      "<br>" + logDiv.innerHTML;
+    logText += `${prediction.class} - ${estimateDistance(width)}<br>`;
   });
+
+  logDiv.innerHTML = logText || "No objects detected.";
 
   requestAnimationFrame(detectFrame);
 }
