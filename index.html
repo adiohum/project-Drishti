@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PROJECT DRISHTI - ADVANCED HUD</title>
+  <title>PROJECT DRISHTI - CYBER HUD</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
@@ -15,7 +15,6 @@
       font-family: 'Orbitron', sans-serif;
       background: radial-gradient(circle at center, #050510, #000);
       color: #00ffff;
-      overflow-x: hidden;
       text-align: center;
     }
 
@@ -57,7 +56,6 @@
       left: 0;
     }
 
-    /* Corner HUD Brackets */
     .corner {
       position: absolute;
       width: 40px;
@@ -69,34 +67,6 @@
     .tr { top: 10px; right: 10px; border-left: none; border-bottom: none; }
     .bl { bottom: 10px; left: 10px; border-right: none; border-top: none; }
     .br { bottom: 10px; right: 10px; border-left: none; border-top: none; }
-
-    /* Radar */
-    #radar {
-      position: absolute;
-      bottom: 15px;
-      right: 15px;
-      width: 100px;
-      height: 100px;
-      border: 1px solid #00ffff;
-      border-radius: 50%;
-      overflow: hidden;
-    }
-
-    #radar::before {
-      content: "";
-      position: absolute;
-      width: 100%;
-      height: 2px;
-      background: #00ffff;
-      top: 50%;
-      animation: sweep 3s linear infinite;
-      transform-origin: left center;
-    }
-
-    @keyframes sweep {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
 
     #distanceBarContainer {
       width: 720px;
@@ -152,8 +122,6 @@
   <div class="corner tr"></div>
   <div class="corner bl"></div>
   <div class="corner br"></div>
-
-  <div id="radar"></div>
 </div>
 
 <div id="distanceBarContainer">
@@ -177,13 +145,37 @@ let container = document.getElementById("videoContainer");
 
 let stream = null;
 let detecting = false;
+let lastSpoken = "";
+let dangerSpoken = false;
+
+/* VOICE FUNCTION */
+function speak(text) {
+  if (lastSpoken === text) return; // prevent spam
+  lastSpoken = text;
+
+  const speech = new SpeechSynthesisUtterance(text);
+  speech.rate = 1;
+  speech.pitch = 0.9;
+  speech.volume = 1;
+  speech.lang = "en-US";
+
+  window.speechSynthesis.speak(speech);
+}
 
 async function bootSequence() {
   statusText.innerText = "SYSTEM: INITIALIZING...";
-  await new Promise(r => setTimeout(r, 800));
+  speak("Initializing neural vision system");
+
+  await new Promise(r => setTimeout(r, 1000));
+
   statusText.innerText = "SYSTEM: LOADING MODEL...";
+  speak("Loading object detection model");
+
   model = await cocoSsd.load();
+
   statusText.innerText = "SYSTEM: CALIBRATION COMPLETE";
+  speak("Calibration complete. Vision system online.");
+
   await new Promise(r => setTimeout(r, 800));
 }
 
@@ -198,6 +190,7 @@ async function startSystem() {
     canvas.height = video.videoHeight;
     detecting = true;
     statusText.innerText = "SYSTEM: VISION ACTIVE";
+    speak("Vision active.");
     detectFrame();
   };
 }
@@ -210,6 +203,7 @@ function stopSystem() {
   logDiv.innerHTML = "System shutdown.";
   distanceBar.style.width = "0%";
   container.classList.remove("danger");
+  speak("System shutdown.");
 }
 
 async function detectFrame() {
@@ -219,7 +213,7 @@ async function detectFrame() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   let closestWidth = 0;
-  let logText = "";
+  let detectedObjects = [];
 
   predictions.forEach(prediction => {
     const [x, y, width, height] = prediction.bbox;
@@ -228,12 +222,19 @@ async function detectFrame() {
     ctx.fillStyle = "#00ffff";
     ctx.fillText(prediction.class, x, y > 10 ? y - 5 : 10);
 
-    logText += prediction.class + " detected<br>";
+    detectedObjects.push(prediction.class);
     if (width > closestWidth) closestWidth = width;
   });
 
+  if (detectedObjects.length > 0) {
+    speak(detectedObjects[0] + " detected");
+  }
+
   updateDistanceBar(closestWidth);
-  logDiv.innerHTML = logText || "Scanning...";
+
+  logDiv.innerHTML = detectedObjects.length > 0 
+    ? detectedObjects.join(", ") + " detected"
+    : "Scanning...";
 
   requestAnimationFrame(detectFrame);
 }
@@ -245,10 +246,17 @@ function updateDistanceBar(width) {
   if (percent > 80) {
     distanceBar.style.background = "red";
     container.classList.add("danger");
+
+    if (!dangerSpoken) {
+      speak("Warning. Object extremely close.");
+      dangerSpoken = true;
+    }
+
     statusText.innerText = "SYSTEM: ⚠ DANGER";
   } else {
     distanceBar.style.background = "#00ffff";
     container.classList.remove("danger");
+    dangerSpoken = false;
   }
 }
 </script>
