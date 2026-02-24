@@ -1,210 +1,304 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>Project Drishti</title>
+<title>PROJECT DRISHTI - AI VISION CORE</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
 <style>
 body{
-    margin:0;
-    font-family: 'Orbitron', sans-serif;
-    background: radial-gradient(circle at center, #050510 0%, #000000 100%);
-    color:#00ffff;
-    overflow:hidden;
+  margin:0;
+  font-family:'Orbitron',sans-serif;
+  background:black;
+  color:#00ffff;
+  overflow:hidden;
+  text-align:center;
 }
 
-canvas{
-    position:absolute;
-    top:0;
-    left:0;
+/* ===== PARTICLE BACKGROUND ===== */
+#particles{
+  position:fixed;
+  top:0;
+  left:0;
+  z-index:-3;
 }
 
-#video{
-    display:none;
+/* ===== CYBER GRID ===== */
+body::before{
+  content:"";
+  position:fixed;
+  width:200%;
+  height:200%;
+  background-image:
+    linear-gradient(rgba(0,255,255,0.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,255,255,0.05) 1px,transparent 1px);
+  background-size:60px 60px;
+  animation:gridMove 25s linear infinite;
+  z-index:-2;
+}
+@keyframes gridMove{
+  from{transform:translate(0,0);}
+  to{transform:translate(-60px,-60px);}
 }
 
-#ui{
-    position:absolute;
-    top:0;
-    left:0;
-    width:100%;
-    height:100%;
-    pointer-events:none;
+/* ===== SCANLINES ===== */
+body::after{
+  content:"";
+  position:fixed;
+  width:100%;
+  height:100%;
+  background:repeating-linear-gradient(
+    to bottom,
+    rgba(0,255,255,0.03) 0px,
+    rgba(0,255,255,0.03) 1px,
+    transparent 2px,
+    transparent 4px
+  );
+  pointer-events:none;
+  z-index:-1;
 }
 
-.panel{
-    position:absolute;
-    top:20px;
-    left:20px;
-    background:rgba(0,0,0,0.4);
-    backdrop-filter:blur(8px);
-    border:1px solid #00ffff;
-    padding:15px;
-    border-radius:10px;
+h1{
+  margin-top:20px;
+  letter-spacing:4px;
+  text-shadow:0 0 15px #00ffff;
+}
+
+#videoContainer{
+  position:relative;
+  width:720px;
+  margin:30px auto;
+  border:2px solid #00ffff;
+  border-radius:14px;
+  box-shadow:0 0 30px #00ffff;
+  overflow:hidden;
+  background:rgba(0,0,0,0.6);
+  backdrop-filter:blur(6px);
+  transition:0.3s;
+}
+
+#videoContainer.danger{
+  border-color:red;
+  box-shadow:0 0 40px red;
+}
+
+video,#canvas{
+  width:100%;
+  display:block;
+}
+#canvas{
+  position:absolute;
+  top:0;
+  left:0;
+}
+
+/* HUD Corners */
+.corner{
+  position:absolute;
+  width:40px;
+  height:40px;
+  border:2px solid #00ffff;
+}
+.tl{top:10px;left:10px;border-right:none;border-bottom:none;}
+.tr{top:10px;right:10px;border-left:none;border-bottom:none;}
+.bl{bottom:10px;left:10px;border-right:none;border-top:none;}
+.br{bottom:10px;right:10px;border-left:none;border-top:none;}
+
+/* Radar */
+#radar{
+  position:absolute;
+  bottom:15px;
+  right:15px;
+  width:130px;
+  height:130px;
+  border-radius:50%;
+  border:2px solid #00ffff;
+}
+
+/* Circular Jarvis Ring */
+#jarvis{
+  position:absolute;
+  top:50%;
+  left:50%;
+  width:250px;
+  height:250px;
+  margin:-125px;
+  border-radius:50%;
+  border:1px solid rgba(0,255,255,0.3);
+  animation:rotate 15s linear infinite;
+  pointer-events:none;
+}
+@keyframes rotate{
+  from{transform:rotate(0deg);}
+  to{transform:rotate(360deg);}
 }
 
 button{
-    pointer-events:auto;
-    background:black;
-    border:1px solid #00ffff;
-    color:#00ffff;
-    padding:10px 15px;
-    margin-top:10px;
-    cursor:pointer;
+  margin:15px;
+  padding:10px 25px;
+  background:transparent;
+  border:2px solid #00ffff;
+  color:#00ffff;
+  cursor:pointer;
 }
-
-#scanline{
-    position:absolute;
-    width:100%;
-    height:2px;
-    background:#00ffff;
-    animation:scan 3s linear infinite;
-    opacity:0.4;
-}
-
-@keyframes scan{
-    0%{top:0;}
-    100%{top:100%;}
+button:hover{
+  background:#00ffff;
+  color:black;
+  box-shadow:0 0 15px #00ffff;
 }
 </style>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap" rel="stylesheet">
 </head>
 
 <body>
 
-<div id="scanline"></div>
+<canvas id="particles"></canvas>
 
-<video id="video" autoplay muted></video>
-<canvas id="canvas"></canvas>
+<h1>PROJECT DRISHTI</h1>
 
-<div id="ui">
-    <div class="panel">
-        <div>PROJECT DRISHTI</div>
-        <button onclick="startSystem()">Start Camera</button>
-        <button onclick="stopSystem()">Stop Camera</button>
-    </div>
+<div id="videoContainer">
+  <video id="video" autoplay muted></video>
+  <canvas id="canvas"></canvas>
+  <canvas id="radar"></canvas>
+  <div id="jarvis"></div>
+
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
 </div>
 
+<button onclick="startSystem()">ACTIVATE</button>
+<button onclick="stopSystem()">SHUTDOWN</button>
+
 <script>
-
-let model, stream;
-let detecting=false;
-let objectStates={};
-
-const STABLE_FRAMES = 6;
-const LOST_FRAMES = 12;
-const COOLDOWN = 4000;
-
-let video=document.getElementById("video");
-let canvas=document.getElementById("canvas");
-let ctx=canvas.getContext("2d");
-
-function estimateDistance(width){
-    let knownWidth=0.5;
-    let focalLength=600;
-    return (knownWidth * focalLength) / width;
+/* ===== PARTICLES ===== */
+const pCanvas=document.getElementById("particles");
+const pCtx=pCanvas.getContext("2d");
+pCanvas.width=window.innerWidth;
+pCanvas.height=window.innerHeight;
+let particles=[];
+for(let i=0;i<100;i++){
+  particles.push({x:Math.random()*pCanvas.width,
+                  y:Math.random()*pCanvas.height,
+                  r:Math.random()*2,
+                  d:Math.random()*1});
 }
+function drawParticles(){
+  pCtx.clearRect(0,0,pCanvas.width,pCanvas.height);
+  pCtx.fillStyle="#00ffff";
+  particles.forEach(p=>{
+    pCtx.beginPath();
+    pCtx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    pCtx.fill();
+    p.y+=p.d;
+    if(p.y>pCanvas.height)p.y=0;
+  });
+  requestAnimationFrame(drawParticles);
+}
+drawParticles();
+
+/* ===== AI SYSTEM ===== */
+let model,stream,detecting=false;
+let objectMemory={};
+const STABLE_FRAMES=5;
+const LOST_FRAMES=10;
+let speaking=false;
+
+const video=document.getElementById("video");
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d");
+const radar=document.getElementById("radar");
+const rCtx=radar.getContext("2d");
+radar.width=130; radar.height=130;
 
 function speak(text){
-    window.speechSynthesis.cancel();
-    let utter=new SpeechSynthesisUtterance(text);
-    utter.rate=1;
-    utter.pitch=0.9;
-    window.speechSynthesis.speak(utter);
+  if(speaking)return;
+  let u=new SpeechSynthesisUtterance(text);
+  u.onstart=()=>speaking=true;
+  u.onend=()=>speaking=false;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(u);
 }
 
 async function startSystem(){
-    model=await cocoSsd.load();
-    stream=await navigator.mediaDevices.getUserMedia({video:true});
-    video.srcObject=stream;
-
-    video.onloadedmetadata=()=>{
-        canvas.width=video.videoWidth;
-        canvas.height=video.videoHeight;
-        detecting=true;
-        objectStates={};
-        detectLoop();
-    };
+  model=await cocoSsd.load();
+  stream=await navigator.mediaDevices.getUserMedia({video:true});
+  video.srcObject=stream;
+  video.onloadedmetadata=()=>{
+    canvas.width=video.videoWidth;
+    canvas.height=video.videoHeight;
+    detecting=true;
+    objectMemory={};
+    detectFrame();
+  };
 }
 
 function stopSystem(){
-    detecting=false;
-    if(stream) stream.getTracks().forEach(t=>t.stop());
-    window.speechSynthesis.cancel();
-    objectStates={};
+  detecting=false;
+  if(stream)stream.getTracks().forEach(t=>t.stop());
+  window.speechSynthesis.cancel();
+  objectMemory={};
 }
 
-async function detectLoop(){
-    if(!detecting) return;
+async function detectFrame(){
+  if(!detecting)return;
 
-    const predictions=await model.detect(video);
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+  const predictions=await model.detect(video);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  rCtx.clearRect(0,0,130,130);
 
-    let detectedThisFrame={};
+  let detectedThisFrame={};
 
-    predictions.forEach(p=>{
-        if(p.score<0.75) return;
+  predictions.forEach(p=>{
+    if(p.score<0.75)return;
+    const[x,y,w,h]=p.bbox;
 
-        const [x,y,w,h]=p.bbox;
-        detectedThisFrame[p.class]=true;
+    ctx.strokeStyle="#00ffff";
+    ctx.strokeRect(x,y,w,h);
+    ctx.fillStyle="#00ffff";
+    ctx.fillText(p.class,x,y>10?y-5:10);
 
-        if(!objectStates[p.class]){
-            objectStates[p.class]={
-                seen:0,
-                lost:0,
-                announced:false,
-                lastSpoken:0
-            };
-        }
+    detectedThisFrame[p.class]=true;
 
-        let obj=objectStates[p.class];
-        obj.seen++;
-        obj.lost=0;
-
-        let distance=estimateDistance(w).toFixed(1);
-
-        ctx.strokeStyle="#00ffff";
-        ctx.lineWidth=2;
-        ctx.strokeRect(x,y,w,h);
-
-        ctx.fillStyle="#00ffff";
-        ctx.fillText(
-            p.class+" | "+distance+"m",
-            x,
-            y>10?y-5:10
-        );
-
-        if(obj.seen>=STABLE_FRAMES && !obj.announced){
-            let now=Date.now();
-            if(now-obj.lastSpoken>COOLDOWN){
-                speak(p.class+" detected at "+distance+" meters");
-                obj.lastSpoken=now;
-                obj.announced=true;
-            }
-        }
-    });
-
-    for(let key in objectStates){
-        if(!detectedThisFrame[key]){
-            let obj=objectStates[key];
-            obj.lost++;
-
-            if(obj.lost>=LOST_FRAMES){
-                let now=Date.now();
-                if(now-obj.lastSpoken>COOLDOWN){
-                    speak(key+" no longer detected");
-                }
-                delete objectStates[key];
-            }
-        }
+    if(!objectMemory[p.class]){
+      objectMemory[p.class]={seen:0,lost:0,announced:false};
     }
 
-    requestAnimationFrame(detectLoop);
-}
+    objectMemory[p.class].seen++;
+    objectMemory[p.class].lost=0;
 
+    if(objectMemory[p.class].seen>=STABLE_FRAMES && !objectMemory[p.class].announced){
+      speak(p.class+" detected");
+      objectMemory[p.class].announced=true;
+    }
+
+    let rx=(x/canvas.width)*130;
+    let ry=(y/canvas.height)*130;
+    rCtx.fillStyle="#00ffff";
+    rCtx.beginPath();
+    rCtx.arc(rx,ry,4,0,Math.PI*2);
+    rCtx.fill();
+  });
+
+  for(let obj in objectMemory){
+    if(!detectedThisFrame[obj]){
+      objectMemory[obj].lost++;
+      if(objectMemory[obj].lost>=LOST_FRAMES){
+        if(objectMemory[obj].announced){
+          speak(obj+" no longer detected");
+        }
+        delete objectMemory[obj];
+      }
+    }
+  }
+
+  requestAnimationFrame(detectFrame);
+}
 </script>
+
 </body>
 </html>
