@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Project Drishti - Object Detection</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- TensorFlow + COCO SSD CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
+  <style>
+    body {
+      background: #111;
+      color: white;
+      text-align: center;
+      font-family: Arial, sans-serif;
+    }
+    video {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #container {
+      position: relative;
+      display: inline-block;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      background: cyan;
+      border: none;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #log {
+      margin-top: 20px;
+      max-height: 150px;
+      overflow-y: auto;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>Project Drishti - Smart Vision</h2>
+
+<div id="container">
+  <video id="video" width="640" height="480" autoplay muted></video>
+  <canvas id="canvas" width="640" height="480"></canvas>
+</div>
+
+<br>
+<button onclick="startCamera()">Initialize Optics</button>
+
+<div id="log"></div>
+
+<script>
+let model;
+let video = document.getElementById("video");
+let canvas = document.getElementById("canvas");
+let ctx = canvas.getContext("2d");
+let logDiv = document.getElementById("log");
+
+async function loadModel() {
+  model = await cocoSsd.load();
+  console.log("Model Loaded Successfully");
+}
+
+async function startCamera() {
+  await loadModel();
+
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: true
+  });
+
+  video.srcObject = stream;
+  video.onloadedmetadata = () => {
+    detectFrame();
+  };
+}
+
+async function detectFrame() {
+  const predictions = await model.detect(video);
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  predictions.forEach(prediction => {
+    const [x, y, width, height] = prediction.bbox;
+
+    ctx.strokeStyle = "cyan";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, width, height);
+
+    ctx.fillStyle = "cyan";
+    ctx.fillText(
+      prediction.class + " (" + estimateDistance(width) + ")",
+      x,
+      y > 10 ? y - 5 : 10
+    );
+
+    logDiv.innerHTML =
+      prediction.class + " - " + estimateDistance(width) +
+      "<br>" + logDiv.innerHTML;
+  });
+
+  requestAnimationFrame(detectFrame);
+}
+
+function estimateDistance(boxWidth) {
+  if (boxWidth > 300) return "Very Close";
+  if (boxWidth > 150) return "Moderate";
+  return "Far";
+}
+</script>
+
+</body>
+</html>
