@@ -1,58 +1,53 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Project Drishti - AI Assistive Vision</title>
+  <title>PROJECT DRISHTI - ADVANCED HUD</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 
-  <!-- TensorFlow -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
   <style>
     body {
       margin: 0;
-      background: radial-gradient(circle at top, #0f172a, #020617);
-      font-family: 'Inter', sans-serif;
-      color: white;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      font-family: 'Orbitron', sans-serif;
+      background: radial-gradient(circle at center, #050510, #000);
+      color: #00ffff;
+      overflow-x: hidden;
+      text-align: center;
     }
 
     h1 {
-      font-family: 'Orbitron', sans-serif;
-      margin-top: 25px;
-      font-size: 28px;
-      letter-spacing: 2px;
-      color: #00ffff;
-      text-shadow: 0 0 12px rgba(0,255,255,0.7);
+      margin-top: 20px;
+      letter-spacing: 4px;
+      text-shadow: 0 0 15px #00ffff;
     }
 
-    .status {
-      margin-top: 8px;
-      font-size: 14px;
-      opacity: 0.8;
-    }
-
-    .status span {
-      color: #00ff88;
+    #status {
+      font-size: 13px;
+      margin-top: 5px;
     }
 
     #videoContainer {
       position: relative;
-      margin-top: 25px;
-      border-radius: 18px;
+      width: 720px;
+      margin: 30px auto;
+      border: 2px solid #00ffff;
+      border-radius: 12px;
+      box-shadow: 0 0 25px #00ffff;
       overflow: hidden;
-      box-shadow: 0 0 40px rgba(0,255,255,0.25);
-      backdrop-filter: blur(10px);
+      transition: 0.3s;
+    }
+
+    #videoContainer.danger {
+      border-color: red;
+      box-shadow: 0 0 30px red;
     }
 
     video, canvas {
-      width: 720px;
-      height: 520px;
+      width: 100%;
       display: block;
     }
 
@@ -62,72 +57,84 @@
       left: 0;
     }
 
-    .controls {
-      margin-top: 25px;
+    /* Corner HUD Brackets */
+    .corner {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      border: 2px solid #00ffff;
+    }
+
+    .tl { top: 10px; left: 10px; border-right: none; border-bottom: none; }
+    .tr { top: 10px; right: 10px; border-left: none; border-bottom: none; }
+    .bl { bottom: 10px; left: 10px; border-right: none; border-top: none; }
+    .br { bottom: 10px; right: 10px; border-left: none; border-top: none; }
+
+    /* Radar */
+    #radar {
+      position: absolute;
+      bottom: 15px;
+      right: 15px;
+      width: 100px;
+      height: 100px;
+      border: 1px solid #00ffff;
+      border-radius: 50%;
+      overflow: hidden;
+    }
+
+    #radar::before {
+      content: "";
+      position: absolute;
+      width: 100%;
+      height: 2px;
+      background: #00ffff;
+      top: 50%;
+      animation: sweep 3s linear infinite;
+      transform-origin: left center;
+    }
+
+    @keyframes sweep {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    #distanceBarContainer {
+      width: 720px;
+      height: 10px;
+      margin: 10px auto;
+      background: rgba(0,255,255,0.1);
+      border-radius: 10px;
+    }
+
+    #distanceBar {
+      height: 100%;
+      width: 0%;
+      background: #00ffff;
+      border-radius: 10px;
+      transition: width 0.3s, background 0.3s;
     }
 
     button {
-      padding: 12px 30px;
-      margin: 8px;
-      font-size: 14px;
-      border: none;
-      border-radius: 30px;
-      cursor: pointer;
-      font-family: 'Orbitron', sans-serif;
-      letter-spacing: 1px;
-      transition: 0.3s ease;
-    }
-
-    .start {
-      background: linear-gradient(90deg, #00ffff, #00bfff);
-      color: black;
-      box-shadow: 0 0 15px rgba(0,255,255,0.6);
-    }
-
-    .start:hover {
-      transform: scale(1.05);
-    }
-
-    .stop {
-      background: linear-gradient(90deg, #ff4d4d, #ff0000);
-      color: white;
-      box-shadow: 0 0 15px rgba(255,0,0,0.6);
-    }
-
-    .stop:hover {
-      transform: scale(1.05);
-    }
-
-    #logPanel {
-      margin-top: 30px;
-      width: 720px;
-      background: rgba(15,23,42,0.6);
-      border-radius: 15px;
-      padding: 15px;
-      box-shadow: 0 0 20px rgba(0,255,255,0.15);
-      backdrop-filter: blur(12px);
-    }
-
-    #logPanel h3 {
-      margin-top: 0;
-      font-family: 'Orbitron', sans-serif;
-      font-size: 16px;
+      margin: 15px;
+      padding: 10px 25px;
+      background: transparent;
+      border: 2px solid #00ffff;
       color: #00ffff;
-      letter-spacing: 1px;
+      cursor: pointer;
+      letter-spacing: 2px;
+    }
+
+    button:hover {
+      background: #00ffff;
+      color: black;
     }
 
     #log {
-      max-height: 150px;
-      overflow-y: auto;
-      font-size: 14px;
-      opacity: 0.9;
-    }
-
-    #footer {
-      margin-top: 30px;
+      width: 720px;
+      margin: 20px auto;
       font-size: 12px;
-      opacity: 0.5;
-      margin-bottom: 20px;
+      opacity: 0.8;
+      min-height: 40px;
     }
   </style>
 </head>
@@ -135,47 +142,53 @@
 <body>
 
 <h1>PROJECT DRISHTI</h1>
-<div class="status">System Status: <span id="systemStatus">Idle</span></div>
+<div id="status">SYSTEM: IDLE</div>
 
 <div id="videoContainer">
   <video id="video" autoplay muted></video>
   <canvas id="canvas"></canvas>
+
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+
+  <div id="radar"></div>
 </div>
 
-<div class="controls">
-  <button class="start" onclick="startCamera()">ACTIVATE VISION</button>
-  <button class="stop" onclick="stopCamera()">SHUTDOWN</button>
+<div id="distanceBarContainer">
+  <div id="distanceBar"></div>
 </div>
 
-<div id="logPanel">
-  <h3>Detection Feed</h3>
-  <div id="log">Awaiting activation...</div>
-</div>
+<button onclick="startSystem()">ACTIVATE</button>
+<button onclick="stopSystem()">SHUTDOWN</button>
 
-<div id="footer">AI Real-Time Assistive Vision Interface</div>
+<div id="log">Awaiting activation...</div>
 
 <script>
 let model;
 let video = document.getElementById("video");
 let canvas = document.getElementById("canvas");
 let ctx = canvas.getContext("2d");
+let statusText = document.getElementById("status");
 let logDiv = document.getElementById("log");
-let systemStatus = document.getElementById("systemStatus");
+let distanceBar = document.getElementById("distanceBar");
+let container = document.getElementById("videoContainer");
 
 let stream = null;
 let detecting = false;
 
-let lastSpokenObject = "";
-let lastSpokenTime = 0;
-
-async function loadModel() {
-  systemStatus.innerText = "Loading AI Model...";
+async function bootSequence() {
+  statusText.innerText = "SYSTEM: INITIALIZING...";
+  await new Promise(r => setTimeout(r, 800));
+  statusText.innerText = "SYSTEM: LOADING MODEL...";
   model = await cocoSsd.load();
-  systemStatus.innerText = "Model Ready";
+  statusText.innerText = "SYSTEM: CALIBRATION COMPLETE";
+  await new Promise(r => setTimeout(r, 800));
 }
 
-async function startCamera() {
-  if (!model) await loadModel();
+async function startSystem() {
+  await bootSequence();
 
   stream = await navigator.mediaDevices.getUserMedia({ video: true });
   video.srcObject = stream;
@@ -184,17 +197,19 @@ async function startCamera() {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     detecting = true;
-    systemStatus.innerText = "Vision Active";
+    statusText.innerText = "SYSTEM: VISION ACTIVE";
     detectFrame();
   };
 }
 
-function stopCamera() {
+function stopSystem() {
   detecting = false;
   if (stream) stream.getTracks().forEach(track => track.stop());
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  systemStatus.innerText = "System Idle";
+  statusText.innerText = "SYSTEM: IDLE";
   logDiv.innerHTML = "System shutdown.";
+  distanceBar.style.width = "0%";
+  container.classList.remove("danger");
 }
 
 async function detectFrame() {
@@ -203,51 +218,38 @@ async function detectFrame() {
   const predictions = await model.detect(video);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  let closestWidth = 0;
   let logText = "";
 
   predictions.forEach(prediction => {
     const [x, y, width, height] = prediction.bbox;
-    const distance = estimateDistance(width);
-
     ctx.strokeStyle = "#00ffff";
-    ctx.lineWidth = 2;
     ctx.strokeRect(x, y, width, height);
-
     ctx.fillStyle = "#00ffff";
-    ctx.font = "16px Orbitron";
-    ctx.fillText(`${prediction.class} | ${distance}`, x, y > 10 ? y - 5 : 10);
+    ctx.fillText(prediction.class, x, y > 10 ? y - 5 : 10);
 
-    logText += `${prediction.class} → ${distance}<br>`;
-
-    speakObject(prediction.class, distance);
+    logText += prediction.class + " detected<br>";
+    if (width > closestWidth) closestWidth = width;
   });
 
-  logDiv.innerHTML = logText || "Scanning environment...";
+  updateDistanceBar(closestWidth);
+  logDiv.innerHTML = logText || "Scanning...";
 
   requestAnimationFrame(detectFrame);
 }
 
-function estimateDistance(boxWidth) {
-  if (boxWidth > 400) return "VERY CLOSE";
-  if (boxWidth > 250) return "CLOSE";
-  if (boxWidth > 150) return "MODERATE";
-  return "FAR";
-}
+function updateDistanceBar(width) {
+  let percent = Math.min(width / 4, 100);
+  distanceBar.style.width = percent + "%";
 
-function speakObject(objectName, distance) {
-  const now = Date.now();
-
-  if (objectName === lastSpokenObject && now - lastSpokenTime < 3000) return;
-
-  const message = `${objectName} detected. Distance ${distance}`;
-  const speech = new SpeechSynthesisUtterance(message);
-  speech.rate = 1;
-  speech.pitch = 1;
-
-  window.speechSynthesis.speak(speech);
-
-  lastSpokenObject = objectName;
-  lastSpokenTime = now;
+  if (percent > 80) {
+    distanceBar.style.background = "red";
+    container.classList.add("danger");
+    statusText.innerText = "SYSTEM: ⚠ DANGER";
+  } else {
+    distanceBar.style.background = "#00ffff";
+    container.classList.remove("danger");
+  }
 }
 </script>
 
