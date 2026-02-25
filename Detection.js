@@ -1,107 +1,113 @@
-
-let objectStates = {};
+let model;
+let detecting = false;
+let trackedObjects = {};
 
 const STABLE_FRAMES = 6;
 const LOST_FRAMES = 12;
-const ANNOUNCE_INTERVAL = 6000; // 6 seconds repeat interval
 
-const realSizes = {
-    person: 0.5,
-    "cell phone": 0.07,
-    laptop: 0.35,
-    bottle: 0.08,
-    car: 1.8,
-    chair: 0.5
-};
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
 
-const focalLength = 650;
+const radar = document.getElementById("radar");
+const rCtx = radar.getContext("2d");
+radar.width = 130;
+radar.height = 130;
 
-function smoothDistance(previous, current) {
-    if (!previous) return current;
-    return (previous * 0.7 + current * 0.3);
+async function loadModel() {
+  model = await cocoSsd.load();
+  detecting = true;
+  trackedObjects = {};
+  detectFrame();
 }
 
-function estimateDistance(className, pixelWidth) {
-    const realWidth = realSizes[className] || 0.3;
-    return (realWidth * focalLength) / pixelWidth;
+function stopDetection() {
+  detecting = false;
+  trackedObjects = {};
 }
 
-async function startDetection() {
-    detectLoop();
+function estimateDistance(boxWidth) {
+  const focalLength = 700;
+  const realWidth = 50;
+  const distance = (realWidth * focalLength) / boxWidth;
+  return Math.round(distance / 100);
 }
 
-async function detectLoop() {
-    if (!detecting) return;
+function generateID(pred) {
+  return pred.class + "_" +
+         Math.round(pred.bbox[0] / 40) + "_" +
+         Math.round(pred.bbox[1] / 40);
+}
 
-    const predictions = await model.detect(video);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+async function detectFrame() {
+  if (!detecting) return;
 
-    let currentFrame = {};
-    let now = Date.now();
+  const predictions = await model.detect(video);
 
-    predictions.forEach(p => {
-        if (p.score < 0.75) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  rCtx.clearRect(0, 0, 130, 130);
 
-        const [x, y, w, h] = p.bbox;
-        const rawDistance = estimateDistance(p.class, w);
+  let currentFrameIDs = {};
 
-        if (!objectStates[p.class]) {
-            objectStates[p.class] = {
-                seen: 0,
-                lost: 0,
-                active: false,
-                distance: null,
-                lastSpoken: 0
-            };
-        }
+  predictions.forEach(pred => {
+    if (pred.score < 0.7) return;
 
-        let obj = objectStates[p.class];
-        obj.seen++;
-        obj.lost = 0;
+    const [x, y, w, h] = pred.bbox;
+    const id = generateID(pred);
+    currentFrameIDs[id] = true;
 
-        obj.distance = smoothDistance(obj.distance, rawDistance);
-        const displayDistance = obj.distance.toFixed(1);
-
-        ctx.strokeStyle = "#00ffff";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x, y, w, h);
-
-        ctx.fillStyle = "#00ffff";
-        ctx.fillText(
-            `${p.class} | ${displayDistance}m`,
-            x,
-            y > 10 ? y - 5 : 10
-        );
-
-        currentFrame[p.class] = true;
-
-        // First stable detection
-        if (obj.seen >= STABLE_FRAMES && !obj.active) {
-            obj.active = true;
-            obj.lastSpoken = now;
-            speak(`${p.class} detected at ${displayDistance} meters`);
-            addLog(`${p.class} detected at ${displayDistance}m`);
-        }
-
-        // Controlled repetition while still visible
-        if (obj.active && now - obj.lastSpoken > ANNOUNCE_INTERVAL) {
-            obj.lastSpoken = now;
-            speak(`${p.class} at ${displayDistance} meters`);
-        }
-    });
-
-    // Handle disappear
-    for (let key in objectStates) {
-        if (!currentFrame[key]) {
-            objectStates[key].lost++;
-
-            if (objectStates[key].lost >= LOST_FRAMES) {
-                speak(`${key} no longer detected`);
-                addLog(`${key} disappeared`);
-                delete objectStates[key];
-            }
-        }
+    if (!trackedObjects[id]) {
+      trackedObjects[id] = {
+        class: pred.class,
+        seen: 0,
+        lost: 0,
+        announced: false
+      };
     }
 
-    requestAnimationFrame(detectLoop);
+    trackedObjects[id].seen++;
+    trackedObjects[id].lost = 0;
+
+    const distance = estimateDistance(w);
+
+    // Draw box
+    ctx.strokeStyle = "#00ffff";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, w, h);
+
+    ctx.fillStyle = "#00ffff";
+    ctx.font = "14px Orbitron";
+    ctx.fillText(pred.class + " (" + distance + "m)", x, y > 20 ? y - 10 : 20);
+
+    // Radar
+    let rx = (x / canvas.width) * 130;
+    let ry = (y / canvas.height) * 130;
+    rCtx.beginPath();
+    rCtx.arc(rx, ry, 4, 0, Math.PI * 2);
+    rCtx.fillStyle = "#00ffff";
+    rCtx.fill();
+
+    if (
+      trackedObjects[id].seen >= STABLE_FRAMES &&
+      !trackedObjects[id].announced
+    ) {
+      speak(pred.class + " detected at " + distance + " meters");
+      trackedObjects[id].announced = true;
+    }
+  });
+
+  // Handle lost objects
+  for (let id in trackedObjects) {
+    if (!currentFrameIDs[id]) {
+      trackedObjects[id].lost++;
+      if (trackedObjects[id].lost >= LOST_FRAMES) {
+        if (trackedObjects[id].announced) {
+          speak(trackedObjects[id].class + " left view");
+        }
+        delete trackedObjects[id];
+      }
+    }
+  }
+
+  requestAnimationFrame(detectFrame);
 }
