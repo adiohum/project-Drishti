@@ -45,6 +45,18 @@
         else if (status === 'loading') el.classList.add('loading');
     }
 
+    // Update object count
+    function updateObjectCount(count) {
+        const el = document.getElementById('objectCount');
+        if (el) el.textContent = count;
+    }
+
+    // Update FPS
+    function updateFPS(fps) {
+        const el = document.getElementById('fpsValue');
+        if (el) el.textContent = fps;
+    }
+
     // Initialize DOM references
     function initDOM() {
         activateBtn = document.getElementById('activateBtn');
@@ -54,6 +66,14 @@
         videoElement = document.getElementById('videoElement');
         overlayCanvas = document.getElementById('overlayCanvas');
         radarCanvas = document.getElementById('radarCanvas');
+
+        // 🔥 FIX: Attach button event listeners
+        if (activateBtn) {
+            activateBtn.addEventListener('click', startSystem);
+        }
+        if (shutdownBtn) {
+            shutdownBtn.addEventListener('click', stopSystem);
+        }
     }
 
     // Initialize all modules
@@ -107,6 +127,7 @@
                     if (typeof logEvent === 'function') {
                         logEvent('ERROR', 'AI Model failed to load');
                     }
+                    hideLoading();
                     return false;
                 }
             } else {
@@ -114,6 +135,7 @@
                 if (typeof logEvent === 'function') {
                     logEvent('ERROR', 'Detection module not found');
                 }
+                hideLoading();
                 return false;
             }
 
@@ -138,6 +160,8 @@
 
     // Start the system
     async function startSystem() {
+        console.log('[Controller] startSystem called');
+        
         if (systemActive) {
             console.log('[Controller] System already active');
             return;
@@ -201,6 +225,8 @@
 
     // Stop the system
     function stopSystem() {
+        console.log('[Controller] stopSystem called');
+        
         if (!systemActive) {
             console.log('[Controller] System not active');
             return;
@@ -249,6 +275,7 @@
 
     // Initialize when DOM is ready
     function onDOMReady() {
+        console.log('[Controller] DOM ready, initializing...');
         initDOM();
         
         // Initialize modules after a short delay
