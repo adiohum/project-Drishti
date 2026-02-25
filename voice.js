@@ -1,32 +1,13 @@
-
-let speechQueue = [];
-let speaking = false;
+let lastSpoken = 0;
+const ANNOUNCE_COOLDOWN = 2500;
 
 function speak(text) {
-    if (speechQueue.includes(text)) return;
+  const now = Date.now();
+  if (now - lastSpoken < ANNOUNCE_COOLDOWN) return;
 
-    speechQueue.push(text);
-    processSpeech();
-}
+  lastSpoken = now;
 
-function processSpeech() {
-    if (speaking || speechQueue.length === 0) return;
-
-    speaking = true;
-    let utter = new SpeechSynthesisUtterance(speechQueue.shift());
-    utter.rate = 1;
-    utter.pitch = 0.9;
-
-    utter.onend = () => {
-        speaking = false;
-        processSpeech();
-    };
-
-    window.speechSynthesis.speak(utter);
-}
-
-function stopVoice() {
-    window.speechSynthesis.cancel();
-    speechQueue = [];
-    speaking = false;
+  const utter = new SpeechSynthesisUtterance(text);
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utter);
 }
