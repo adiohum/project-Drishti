@@ -741,15 +741,14 @@
         </div>
         
         <!-- Control Buttons -->
-        <div class="controls">
-            <button class="control-btn btn-activate" id="activateBtn">
-                ACTIVATE
-            </button>
-            <button class="control-btn btn-shutdown" id="shutdownBtn" disabled>
-                SHUTDOWN
-            </button>
-        </div>
-    </div>
+<div class="controls">
+    <button class="control-btn btn-activate" id="activateBtn" onclick="startSystem()">
+        ACTIVATE
+    </button>
+    <button class="control-btn btn-shutdown" id="shutdownBtn" onclick="stopSystem()" disabled>
+        SHUTDOWN
+    </button>
+</div>
     
     <!-- ============================================
          EXTERNAL SCRIPTS (MUST BE IN THIS ORDER)
