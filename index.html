@@ -5,11 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Project Drishti - AI Vision System</title>
     
-    <!-- TensorFlow.js -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
-    <!-- COCO-SSD Model -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
-    
     <style>
         /* ============================================
            CSS RESET & BASE
@@ -651,12 +646,6 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
-
-        /* ============================================
-           DETECTION BOXES STYLES (Applied via Canvas)
-           ============================================ */
-        
-        /* Log panel styles are handled in log.js */
     </style>
 </head>
 <body>
@@ -753,27 +742,38 @@
         
         <!-- Control Buttons -->
         <div class="controls">
-            <button class="control-btn btn-activate" id="activateBtn" onclick="startSystem()">
+            <button class="control-btn btn-activate" id="activateBtn">
                 ACTIVATE
             </button>
-            <button class="control-btn btn-shutdown" id="shutdownBtn" onclick="stopSystem()" disabled>
+            <button class="control-btn btn-shutdown" id="shutdownBtn" disabled>
                 SHUTDOWN
             </button>
         </div>
     </div>
     
-   <!-- External Scripts (all lowercase) -->
-<script src="./voice.js"></script>
-<script src="./camera.js"></script>
-<script src="./detection.js"></script>
-<script src="./log.js"></script>
+    <!-- ============================================
+         EXTERNAL SCRIPTS (MUST BE IN THIS ORDER)
+         ============================================ -->
+    
+    <!-- TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+    <!-- COCO-SSD Model -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+    
+    <!-- Your modules (all lowercase!) -->
+    <script src="voice.js"></script>
+    <script src="camera.js"></script>
+    <script src="detection.js"></script>
+    <script src="log.js"></script>
+    <script src="controller.js"></script>
+    
     <!-- Particle Animation (UI only) -->
     <script>
-        // Particle Animation System
         (function() {
             const canvas = document.getElementById('particleCanvas');
-            const ctx = canvas.getContext('2d');
+            if (!canvas) return;
             
+            const ctx = canvas.getContext('2d');
             let particles = [];
             const particleCount = 50;
             
@@ -794,7 +794,7 @@
                     this.speedX = (Math.random() - 0.5) * 0.5;
                     this.speedY = (Math.random() - 0.5) * 0.5;
                     this.opacity = Math.random() * 0.5 + 0.2;
-                    this.hue = Math.random() > 0.5 ? 180 : 300; // Cyan or Magenta
+                    this.hue = Math.random() > 0.5 ? 180 : 300;
                 }
                 
                 update() {
@@ -810,12 +810,10 @@
                 draw() {
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                    ctx.fillStyle = `hsla(${this.hue}, 100%, 50%, ${this.opacity})`;
+                    ctx.fillStyle = 'hsla(' + this.hue + ', 100%, 50%, ' + this.opacity + ')';
                     ctx.fill();
-                    
-                    // Glow effect
                     ctx.shadowBlur = 10;
-                    ctx.shadowColor = `hsla(${this.hue}, 100%, 50%, 0.5)`;
+                    ctx.shadowColor = 'hsla(' + this.hue + ', 100%, 50%, 0.5)';
                 }
             }
             
@@ -830,14 +828,13 @@
             function animate() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 
-                particles.forEach(particle => {
+                particles.forEach(function(particle) {
                     particle.update();
                     particle.draw();
                 });
                 
-                // Draw connections
-                particles.forEach((p1, i) => {
-                    particles.slice(i + 1).forEach(p2 => {
+                particles.forEach(function(p1, i) {
+                    particles.slice(i + 1).forEach(function(p2) {
                         const dx = p1.x - p2.x;
                         const dy = p1.y - p2.y;
                         const distance = Math.sqrt(dx * dx + dy * dy);
@@ -846,7 +843,7 @@
                             ctx.beginPath();
                             ctx.moveTo(p1.x, p1.y);
                             ctx.lineTo(p2.x, p2.y);
-                            ctx.strokeStyle = `rgba(0, 255, 255, ${0.1 * (1 - distance / 100)})`;
+                            ctx.strokeStyle = 'rgba(0, 255, 255, ' + (0.1 * (1 - distance / 100)) + ')';
                             ctx.lineWidth = 0.5;
                             ctx.stroke();
                         }
