@@ -4,21 +4,26 @@
  * - Handles UI buttons and status updates
  */
 
-(async function(global) {
+(function(global) {
     'use strict';
-
-    const activateBtn = document.getElementById('activateBtn');
-    const shutdownBtn = document.getElementById('shutdownBtn');
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    const loadingText = document.getElementById('loadingText');
 
     // Track state
     let systemActive = false;
+    let modulesReady = false;
+
+    // DOM Elements (initialized after DOM ready)
+    let activateBtn = null;
+    let shutdownBtn = null;
+    let loadingOverlay = null;
+    let loadingText = null;
+    let videoElement = null;
+    let overlayCanvas = null;
+    let radarCanvas = null;
 
     // Show loading UI
-    function showLoading(msg = 'INITIALIZING...') {
-        if (loadingOverlay) {
-            loadingText.textContent = msg;
+    function showLoading(msg) {
+        if (loadingOverlay && loadingText) {
+            loadingText.textContent = msg || 'INITIALIZING...';
             loadingOverlay.classList.remove('hidden');
         }
     }
@@ -30,66 +35,165 @@
         }
     }
 
+    // Update status indicators
+    function updateStatus(id, status) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('active', 'error', 'loading');
+        if (status === 'active') el.classList.add('active');
+        else if (status === 'error') el.classList.add('error');
+        else if (status === 'loading') el.classList.add('loading');
+    }
+
+    // Initialize DOM references
+    function initDOM() {
+        activateBtn = document.getElementById('activateBtn');
+        shutdownBtn = document.getElementById('shutdownBtn');
+        loadingOverlay = document.getElementById('loadingOverlay');
+        loadingText = document.getElementById('loadingText');
+        videoElement = document.getElementById('videoElement');
+        overlayCanvas = document.getElementById('overlayCanvas');
+        radarCanvas = document.getElementById('radarCanvas');
+    }
+
     // Initialize all modules
     async function initModules() {
-        showLoading('LOADING VOICE...');
-        if (typeof voice !== 'undefined') {
-            voice.init();
-        }
-
-        showLoading('INITIALIZING CAMERA...');
-        camera.init(document.getElementById('videoElement'), {
-            onReady: () => {
-                if (typeof logEvent === 'function') {
-                    logEvent('SUCCESS', 'Camera ready');
-                }
+        try {
+            showLoading('INITIALIZING VOICE...');
+            
+            // Initialize voice
+            if (typeof voice !== 'undefined' && voice.init) {
+                voice.init();
+                updateStatus('voiceStatus', 'active');
+            } else {
+                updateStatus('voiceStatus', 'error');
             }
-        });
 
-        showLoading('LOADING AI MODEL...');
-        const detectionOk = await detection.init(
-            document.getElementById('videoElement'),
-            document.getElementById('overlayCanvas'),
-            document.getElementById('radarCanvas')
-        );
+            showLoading('INITIALIZING CAMERA...');
+            updateStatus('cameraStatus', 'loading');
 
-        if (!detectionOk) {
+            // Initialize camera
+            if (typeof camera !== 'undefined' && camera.init) {
+                camera.init(videoElement, {
+                    onReady: function(data) {
+                        if (typeof logEvent === 'function') {
+                            logEvent('SUCCESS', 'Camera ready: ' + data.width + 'x' + data.height);
+                        }
+                        updateStatus('cameraStatus', 'active');
+                    },
+                    onError: function(err) {
+                        if (typeof logEvent === 'function') {
+                            logEvent('ERROR', 'Camera error: ' + err.message);
+                        }
+                        updateStatus('cameraStatus', 'error');
+                    }
+                });
+            }
+
+            showLoading('LOADING AI MODEL...');
+            updateStatus('modelStatus', 'loading');
+
+            // Initialize detection
+            if (typeof detection !== 'undefined' && detection.init) {
+                const detectionOk = await detection.init(videoElement, overlayCanvas, radarCanvas);
+                
+                if (detectionOk) {
+                    updateStatus('modelStatus', 'active');
+                    if (typeof logEvent === 'function') {
+                        logEvent('SUCCESS', 'AI Model loaded');
+                    }
+                } else {
+                    updateStatus('modelStatus', 'error');
+                    if (typeof logEvent === 'function') {
+                        logEvent('ERROR', 'AI Model failed to load');
+                    }
+                    return false;
+                }
+            } else {
+                updateStatus('modelStatus', 'error');
+                if (typeof logEvent === 'function') {
+                    logEvent('ERROR', 'Detection module not found');
+                }
+                return false;
+            }
+
+            modulesReady = true;
+            hideLoading();
+            
+            if (typeof logEvent === 'function') {
+                logEvent('SUCCESS', 'All modules initialized');
+            }
+            
+            return true;
+
+        } catch (error) {
+            console.error('[Controller] Init error:', error);
+            if (typeof logEvent === 'function') {
+                logEvent('ERROR', 'Initialization failed: ' + error.message);
+            }
             hideLoading();
             return false;
         }
-
-        hideLoading();
-        return true;
     }
 
     // Start the system
     async function startSystem() {
-        if (systemActive) return;
-        systemActive = true;
-
-        activateBtn.disabled = true;
-        showLoading('STARTING CAMERA...');
-        const camOk = await camera.start();
-        if (!camOk) {
-            if (typeof logEvent === 'function') {
-                logEvent('ERROR', 'Camera failed to start');
-            }
-            shutdownBtn.disabled = false;
+        if (systemActive) {
+            console.log('[Controller] System already active');
             return;
         }
 
+        if (!modulesReady) {
+            console.log('[Controller] Modules not ready, initializing...');
+            const ok = await initModules();
+            if (!ok) {
+                if (typeof logEvent === 'function') {
+                    logEvent('ERROR', 'Failed to initialize modules');
+                }
+                return;
+            }
+        }
+
+        systemActive = true;
+        
+        if (activateBtn) activateBtn.disabled = true;
+        
+        showLoading('STARTING CAMERA...');
+        updateStatus('cameraStatus', 'loading');
+
+        // Start camera
+        if (typeof camera !== 'undefined' && camera.start) {
+            const camOk = await camera.start();
+            if (!camOk) {
+                if (typeof logEvent === 'function') {
+                    logEvent('ERROR', 'Camera failed to start');
+                }
+                updateStatus('cameraStatus', 'error');
+                systemActive = false;
+                if (activateBtn) activateBtn.disabled = false;
+                hideLoading();
+                return;
+            }
+        }
+
+        updateStatus('cameraStatus', 'active');
+        updateStatus('detectionStatus', 'active');
+
+        // Start detection
         showLoading('STARTING DETECTION...');
-        detection.startDetection();
+        if (typeof detection !== 'undefined' && detection.startDetection) {
+            detection.startDetection();
+        }
 
-        activateBtn.disabled = true;
-        shutdownBtn.disabled = false;
+        if (shutdownBtn) shutdownBtn.disabled = false;
 
-        if (typeof voice !== 'undefined') {
-            voice.announceStatus('System activated');
+        // Announce
+        if (typeof voice !== 'undefined' && voice.announceStatus) {
+            voice.announceStatus('System activated. All systems operational.');
         }
 
         if (typeof logEvent === 'function') {
-            logEvent('INFO', 'System activated');
+            logEvent('SUCCESS', 'System activated');
         }
         
         hideLoading();
@@ -97,23 +201,67 @@
 
     // Stop the system
     function stopSystem() {
-        if (!systemActive) return;
-
-        camera.stop();
-        detection.stopDetection();
-
-        if (typeof voice !== 'undefined') {
-            voice.announceStatus('System shutdown');
+        if (!systemActive) {
+            console.log('[Controller] System not active');
+            return;
         }
-
-        activateBtn.disabled = false;
-        shutdownBtn.disabled = true;
 
         if (typeof logEvent === 'function') {
-            logEvent('INFO', 'System shutdown');
+            logEvent('INFO', 'Shutting down system...');
         }
+
+        // Stop detection
+        if (typeof detection !== 'undefined' && detection.stopDetection) {
+            detection.stopDetection();
+        }
+
+        // Stop camera
+        if (typeof camera !== 'undefined' && camera.stop) {
+            camera.stop();
+        }
+
+        // Stop voice
+        if (typeof voice !== 'undefined' && voice.stopSpeaking) {
+            voice.stopSpeaking();
+        }
+
+        // Announce
+        if (typeof voice !== 'undefined' && voice.announceStatus) {
+            voice.announceStatus('System shutdown complete.');
+        }
+
+        // Update UI
+        updateStatus('cameraStatus', 'inactive');
+        updateStatus('detectionStatus', 'inactive');
         
+        if (activateBtn) activateBtn.disabled = false;
+        if (shutdownBtn) shutdownBtn.disabled = true;
+
+        // Show loading overlay for restart
+        showLoading('SYSTEM OFFLINE');
+
+        if (typeof logEvent === 'function') {
+            logEvent('SUCCESS', 'System shutdown complete');
+        }
+
         systemActive = false;
+    }
+
+    // Initialize when DOM is ready
+    function onDOMReady() {
+        initDOM();
+        
+        // Initialize modules after a short delay
+        setTimeout(function() {
+            initModules();
+        }, 100);
+    }
+
+    // Wait for DOM
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', onDOMReady);
+    } else {
+        onDOMReady();
     }
 
     // Expose to global
